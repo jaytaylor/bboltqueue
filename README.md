@@ -1,5 +1,10 @@
 # bboltqueue[![GoDoc](https://godoc.org/jaytaylor.com/bboltqueue?status.svg)](https://godoc.org/jaytaylor.com/bboltqueue)
 
+[![Documentation](https://godoc.org/github.com/jaytaylor/bboltqueue?status.svg)](https://godoc.org/github.com/jaytaylor/bboltqueue)
+[![Build Status](https://travis-ci.org/jaytaylor/bboltqueue.svg?branch=master)](https://travis-ci.org/jaytaylor/bboltqueue)
+[![Report Card](https://goreportcard.com/badge/github.com/jaytaylor/bboltqueue)](https://goreportcard.com/report/github.com/jaytaylor/bboltqueue)
+
+
 ```go
 import "jaytaylor.com/bboltqueue"
 ```
