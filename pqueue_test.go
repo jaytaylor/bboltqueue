@@ -11,17 +11,19 @@ import (
 
 func TestEnqueue(t *testing.T) {
 	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
-	testPQueue, err := NewPQueue(queueFile)
+	testPQueue, err := NewPQueueFromFile(queueFile)
 	if err != nil {
 		t.Error(err)
 	}
 	defer testPQueue.Close()
 	defer os.Remove(queueFile)
 
+	topic := "foo"
+
 	// Enqueue 50 messages
 	for p := 1; p <= 5; p++ {
 		for n := 1; n <= 10; n++ {
-			err := testPQueue.Enqueue(p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
+			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
 			if err != nil {
 				t.Error(err)
 			}
@@ -29,7 +31,7 @@ func TestEnqueue(t *testing.T) {
 	}
 
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(p)
+		s, err := testPQueue.Size(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -41,17 +43,19 @@ func TestEnqueue(t *testing.T) {
 
 func TestDequeue(t *testing.T) {
 	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
-	testPQueue, err := NewPQueue(queueFile)
+	testPQueue, err := NewPQueueFromFile(queueFile)
 	if err != nil {
 		t.Error(err)
 	}
 	defer testPQueue.Close()
 	defer os.Remove(queueFile)
 
+	topic := "bar"
+
 	//Put them in in reverse priority order
 	for p := 5; p >= 1; p-- {
 		for n := 1; n <= 10; n++ {
-			err := testPQueue.Enqueue(p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
+			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
 			if err != nil {
 				t.Error(err)
 			}
@@ -61,7 +65,7 @@ func TestDequeue(t *testing.T) {
 	for p := 1; p <= 5; p++ {
 		for n := 1; n <= 10; n++ {
 			mStrComp := fmt.Sprintf("test message %d-%d", p, n)
-			m, err := testPQueue.Dequeue()
+			m, err := testPQueue.Dequeue(topic)
 			if err != nil {
 				t.Error("Error dequeueing:", err)
 			}
@@ -75,7 +79,7 @@ func TestDequeue(t *testing.T) {
 		}
 	}
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(p)
+		s, err := testPQueue.Size(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -87,34 +91,36 @@ func TestDequeue(t *testing.T) {
 
 func TestRequeue(t *testing.T) {
 	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
-	testPQueue, err := NewPQueue(queueFile)
+	testPQueue, err := NewPQueueFromFile(queueFile)
 	if err != nil {
 		t.Error(err)
 	}
 	defer testPQueue.Close()
 	defer os.Remove(queueFile)
 
+	topic := "baz"
+
 	for p := 1; p <= 5; p++ {
-		err := testPQueue.Enqueue(p, NewMessage(fmt.Sprintf("test message %d", p)))
+		err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d", p)))
 		if err != nil {
 			t.Error(err)
 		}
 	}
-	mp1, err := testPQueue.Dequeue()
+	mp1, err := testPQueue.Dequeue(topic)
 	if err != nil {
 		t.Error(err)
 	}
 	//Remove the priority 2 message
-	_, _ = testPQueue.Dequeue()
+	_, _ = testPQueue.Dequeue(topic)
 
 	//Re-enqueue the message at priority 1
-	err = testPQueue.Requeue(1, mp1)
+	err = testPQueue.Requeue(topic, 1, mp1)
 	if err != nil {
 		t.Error(err)
 	}
 
 	//And it should be the first to emerge
-	mp1, err = testPQueue.Dequeue()
+	mp1, err = testPQueue.Dequeue(topic)
 	if err != nil {
 		t.Error(err)
 	}
@@ -122,17 +128,18 @@ func TestRequeue(t *testing.T) {
 	if mp1.ToString() != "test message 1" {
 		t.Errorf("Expected: \"%s\", got: \"%s\"", "test message 1", mp1.ToString())
 	}
-
 }
 
 func TestGoroutines(t *testing.T) {
 	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
-	testPQueue, err := NewPQueue(queueFile)
+	testPQueue, err := NewPQueueFromFile(queueFile)
 	if err != nil {
 		t.Error(err)
 	}
 	defer testPQueue.Close()
 	defer os.Remove(queueFile)
+
+	topic := "bam"
 
 	var wg sync.WaitGroup
 
@@ -143,7 +150,7 @@ func TestGoroutines(t *testing.T) {
 			time.Sleep(time.Duration(rand.Intn(20)) * time.Millisecond)
 			for p := 1; p <= 5; p++ {
 				for n := 1; n <= 2; n++ {
-					err := testPQueue.Enqueue(p, NewMessage(fmt.Sprintf("test message %d", p)))
+					err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d", p)))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -156,7 +163,7 @@ func TestGoroutines(t *testing.T) {
 	wg.Wait()
 
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(p)
+		s, err := testPQueue.Size(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -168,7 +175,7 @@ func TestGoroutines(t *testing.T) {
 	for p := 1; p <= 5; p++ {
 		for n := 1; n <= 10; n++ {
 			mStrComp := fmt.Sprintf("test message %d", p)
-			m, err := testPQueue.Dequeue()
+			m, err := testPQueue.Dequeue(topic)
 			if err != nil {
 				t.Error("Error dequeueing:", err)
 			}
@@ -182,7 +189,7 @@ func TestGoroutines(t *testing.T) {
 		}
 	}
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(p)
+		s, err := testPQueue.Size(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -194,27 +201,30 @@ func TestGoroutines(t *testing.T) {
 
 func BenchmarkPQueue(b *testing.B) {
 	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
-	queue, err := NewPQueue(queueFile)
+	queue, err := NewPQueueFromFile(queueFile)
 	if err != nil {
 		b.Error(err)
 	}
+
+	defer os.Remove(queueFile)
+
+	topic := "bench"
+
 	for n := 0; n < b.N; n++ {
 		for p := 1; p <= 5; p++ {
-			queue.Enqueue(p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
+			queue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
 		}
 	}
 
 	for n := 0; n < b.N; n++ {
 		for p := 1; p <= 6; p++ {
-			_, err := queue.Dequeue()
+			_, err := queue.Dequeue(topic)
 			if err != nil {
 				b.Error(err)
 			}
 		}
 	}
-	err = queue.Close()
-	os.Remove(queueFile)
-	if err != nil {
+	if err = queue.Close(); err != nil {
 		b.Error(err)
 	}
 }

@@ -1,9 +1,12 @@
-# boltqueue[![GoDoc](https://godoc.org/github.com/alaska/boltqueue?status.svg)](https://godoc.org/github.com/alaska/boltqueue)
---
-    import "github.com/alaska/boltqueue"
+# bboltqueue[![GoDoc](https://godoc.org/jaytaylor.com/bboltqueue?status.svg)](https://godoc.org/jaytaylor.com/bboltqueue)
 
-Package boltqueue provides a persistent queue or priority queue based on boltdb
-(https://github.com/boltdb/bolt)
+```go
+import "jaytaylor.com/bboltqueue"
+```
+
+Package boltqueue provides a persistent queue or priority queue based on [boltdb](https://github.com/coreos/bbolt).
+
+Based on [boltqueue](https://github.com/flowchartsman/boltqueue).
 
 
 ### Priority Queue
@@ -55,12 +58,19 @@ type PQueue struct {
 
 PQueue is a priority queue backed by a Bolt database on disk
 
-#### func  NewPQueue
+#### func NewPQueue
 
 ```go
-func NewPQueue(filename string) (*PQueue, error)
+func NewPQueue(db *bolt.DB) (*PQueue, error)
 ```
-NewPQueue loads or creates a new PQueue with the given filename
+NewPQueue uses an already open `*bolt.DB`
+
+#### func NewPQueueFromFile
+
+```go
+func NewPQueueFromFile(filename string) (*PQueue, error)
+```
+NewPQueueFromFile loads or creates a new PQueue with the given filename
 
 #### func (*PQueue) Close
 
@@ -72,30 +82,30 @@ Close closes the queue and releases all resources
 #### func (*PQueue) Dequeue
 
 ```go
-func (b *PQueue) Dequeue() (*Message, error)
+func (b *PQueue) Dequeue(topic string) (*Message, error)
 ```
-Dequeue removes the oldest, highest priority message from the queue and returns
-it
+Dequeue removes the oldest, highest priority message from the queue of the named
+topic and returns it
 
 #### func (*PQueue) Enqueue
 
 ```go
-func (b *PQueue) Enqueue(priority int, message *Message) error
+func (b *PQueue) Enqueue(topic string, priority int, message *Message) error
 ```
-Enqueue adds a message to the queue
+Enqueue adds a message to the queue filed under the specified topic
 
 #### func (*PQueue) Requeue
 
 ```go
-func (b *PQueue) Requeue(priority int, message *Message) error
+func (b *PQueue) Requeue(topic string, priority int, message *Message) error
 ```
-Requeue adds a message back into the queue, keeping its precedence. If added at
-the same priority, it should be among the first to dequeue. If added at a
-different priority, it will dequeue before newer messages of that priority.
+Requeue adds a message back into the topic queue, keeping its precedence. If
+added at the same priority, it should be among the first to dequeue. If added at
+a different priority, it will dequeue before newer messages of that priority.
 
 #### func (*PQueue) Size
 
 ```go
-func (b *PQueue) Size(priority int) (int, error)
+func (b *PQueue) Size(topic string, priority int) (int, error)
 ```
 Size returns the number of entries of a given priority from 1 to 5
