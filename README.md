@@ -39,6 +39,13 @@ func NewMessage(value string) *Message
 ```
 NewMessage generates a new priority queue message
 
+#### func  NewMessageB
+
+```go
+func NewMessageB(value []byte) *Message
+```
+NewMessageB generates a new priority queue message from a byte slice
+
 #### func (*Message) Priority
 
 ```go
@@ -98,6 +105,21 @@ topic and returns it
 func (b *PQueue) Enqueue(topic string, priority int, message *Message) error
 ```
 Enqueue adds a message to the queue filed under the specified topic
+
+#### func (*PQueue) Scan
+
+```go
+func (b *PQueue) Scan(topic string, fn func(m *Message)
+```
+Invokes the supplied callback function on each message for the named topic.
+
+#### func (*PQueue) ScanWithBreak
+
+```go
+func (b *PQueue) ScanWithBreak(topic string, fn func(m *Message)
+```
+Invokes the supplied callback function on each message for the named topic until
+the callback returns false.
 
 #### func (*PQueue) Requeue
 

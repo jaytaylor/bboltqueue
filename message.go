@@ -16,6 +16,15 @@ func NewMessage(value string) *Message {
 	return m
 }
 
+// NewMessageB generates a new priority queue message from a byte slice
+func NewMessageB(value []byte) *Message {
+	m := &Message{
+		Value:    value,
+		priority: -1,
+	}
+	return m
+}
+
 // Priority returns the priority the message had in the queue in the range of
 // 0-255 or -1 if the message is new.
 func (m *Message) Priority() int {

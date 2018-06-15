@@ -20,7 +20,7 @@ func TestEnqueue(t *testing.T) {
 
 	topic := "foo"
 
-	// Enqueue 50 messages
+	// Enqueue 50 messages.
 	for p := 1; p <= 5; p++ {
 		for n := 1; n <= 10; n++ {
 			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
@@ -52,7 +52,7 @@ func TestDequeue(t *testing.T) {
 
 	topic := "bar"
 
-	//Put them in in reverse priority order
+	// Put them in in reverse priority order.
 	for p := 5; p >= 1; p-- {
 		for n := 1; n <= 10; n++ {
 			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
@@ -71,7 +71,7 @@ func TestDequeue(t *testing.T) {
 			}
 			mStr := m.ToString()
 			if mStr != mStrComp {
-				t.Errorf("Expected message: \"%s\" got: \"%s\"", mStrComp, mStr)
+				t.Errorf("Expected message=%q got=%q", mStrComp, mStr)
 			}
 			if m.Priority() != p {
 				t.Errorf("Expected priority: %d, got: %d", p, m.Priority())
@@ -110,23 +110,91 @@ func TestRequeue(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	//Remove the priority 2 message
+	// Remove the priority 2 message.
 	_, _ = testPQueue.Dequeue(topic)
 
-	//Re-enqueue the message at priority 1
+	// Re-enqueue the message at priority 1.
 	err = testPQueue.Requeue(topic, 1, mp1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	//And it should be the first to emerge
+	// And it should be the first to emerge.
 	mp1, err = testPQueue.Dequeue(topic)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if mp1.ToString() != "test message 1" {
-		t.Errorf("Expected: \"%s\", got: \"%s\"", "test message 1", mp1.ToString())
+		t.Errorf("Expected=%q, got=%q", "test message 1", mp1.ToString())
+	}
+}
+
+func TestScan(t *testing.T) {
+	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
+	testPQueue, err := NewPQueueFromFile(queueFile)
+	if err != nil {
+		t.Error(err)
+	}
+	defer testPQueue.Close()
+	defer os.Remove(queueFile)
+
+	topic := "zoo"
+
+	// Put them in in reverse priority order.
+	for p := 5; p >= 1; p-- {
+		for n := 1; n <= 10; n++ {
+			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
+			if err != nil {
+				t.Error(err)
+			}
+		}
+	}
+
+	distinct := map[string]struct{}{}
+
+	testPQueue.Scan(topic, func(m *Message) {
+		distinct[m.ToString()] = struct{}{}
+	})
+
+	if expected, actual := 50, len(distinct); actual != expected {
+		t.Errorf("Expected len(distinct)=%v but actual=%v", expected, actual)
+	}
+}
+
+func TestScanWithBreak(t *testing.T) {
+	queueFile := fmt.Sprintf("%d_test.db", time.Now().UnixNano())
+	testPQueue, err := NewPQueueFromFile(queueFile)
+	if err != nil {
+		t.Error(err)
+	}
+	defer testPQueue.Close()
+	defer os.Remove(queueFile)
+
+	topic := "zoo"
+
+	// Put them in in reverse priority order.
+	for p := 5; p >= 1; p-- {
+		for n := 1; n <= 10; n++ {
+			err := testPQueue.Enqueue(topic, p, NewMessage(fmt.Sprintf("test message %d-%d", p, n)))
+			if err != nil {
+				t.Error(err)
+			}
+		}
+	}
+
+	distinct := map[string]struct{}{}
+
+	testPQueue.ScanWithBreak(topic, func(m *Message) bool {
+		distinct[m.ToString()] = struct{}{}
+		if m.ToString() == "test message 4-5" {
+			return false
+		}
+		return true
+	})
+
+	if expected, actual := 35, len(distinct); actual != expected {
+		t.Errorf("Expected len(distinct)=%v but actual=%v", expected, actual)
 	}
 }
 
@@ -168,7 +236,7 @@ func TestGoroutines(t *testing.T) {
 			t.Error(err)
 		}
 		if s != 10 {
-			t.Errorf("Expected queue size 10 for priority %d. Got: %d", p, s)
+			t.Errorf("Expected queue size 10 for priority: %d. Got: %d", p, s)
 		}
 	}
 
@@ -181,7 +249,7 @@ func TestGoroutines(t *testing.T) {
 			}
 			mStr := m.ToString()
 			if mStr != mStrComp {
-				t.Errorf("Expected message: \"%s\" got: \"%s\"", mStrComp, mStr)
+				t.Errorf("Expected message=%q got=%q", mStrComp, mStr)
 			}
 			if m.Priority() != p {
 				t.Errorf("Expected priority: %d, got: %d", p, m.Priority())

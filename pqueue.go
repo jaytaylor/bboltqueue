@@ -92,28 +92,24 @@ func (b *PQueue) Dequeue(topic string) (*Message, error) {
 			if btopic != topic {
 				return nil
 			}
-			bp := bname[len(bname)-1 : len(bname)]
-
-			if bucket.Stats().KeyN == 0 { //empty bucket
+			bpri := bname[len(bname)-1 : len(bname)]
+			cursor := bucket.Cursor()
+			k, v := cursor.First()
+			if len(v) == 0 {
 				return nil
 			}
-
-			cur := bucket.Cursor()
-			kb, v := cur.First() // Should not be empty by definition since we just checked.
-
-			priority, _ := binary.Uvarint(bp)
-
+			priority, _ := binary.Uvarint(bpri)
 			m = &Message{
-				Key:      binary.BigEndian.Uint64(kb),
+				Key:      binary.BigEndian.Uint64(k),
 				Value:    cloneBytes(v),
 				priority: int(priority),
 			}
 
-			// Remove message
-			if err := cur.Delete(); err != nil {
+			// Remove message.
+			if err := cursor.Delete(); err != nil {
 				return err
 			}
-			return foundItem //to stop the iteration
+			return foundItem // To stop iteration.
 		})
 		if err != nil && err != foundItem {
 			return err
@@ -126,7 +122,70 @@ func (b *PQueue) Dequeue(topic string) (*Message, error) {
 	return m, nil
 }
 
-// Size returns the number of entries of a given priority from 1 to 5
+// Scan invokes a callback on each message in a topic.
+func (b *PQueue) Scan(topic string, fn func(m *Message)) error {
+	return b.conn.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(bname []byte, bucket *bolt.Bucket) error {
+			// Only operate on buckets which match topic.
+			btopic := string(bname)[0 : len(bname)-1]
+			if btopic != topic {
+				return nil
+			}
+			bpri := bname[len(bname)-1 : len(bname)]
+			cursor := bucket.Cursor()
+			for k, v := cursor.First(); len(v) > 0; k, v = cursor.Next() {
+				if len(v) == 0 {
+					return nil
+				}
+				priority, _ := binary.Uvarint(bpri)
+				m := &Message{
+					Key:      binary.BigEndian.Uint64(k),
+					Value:    cloneBytes(v),
+					priority: int(priority),
+				}
+				fn(m)
+			}
+			return nil
+		})
+	})
+}
+
+// ScanWithBreak invokes a callback on each message in a topic as long as the callback
+// returns true.
+func (b *PQueue) ScanWithBreak(topic string, fn func(m *Message) bool) error {
+	keepGoing := true
+	return b.conn.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(bname []byte, bucket *bolt.Bucket) error {
+			if !keepGoing {
+				return nil
+			}
+			// Only operate on buckets which match topic.
+			btopic := string(bname)[0 : len(bname)-1]
+			if btopic != topic {
+				return nil
+			}
+			bpri := bname[len(bname)-1 : len(bname)]
+			cursor := bucket.Cursor()
+			for k, v := cursor.First(); len(v) > 0; k, v = cursor.Next() {
+				if len(v) == 0 {
+					return nil
+				}
+				priority, _ := binary.Uvarint(bpri)
+				m := &Message{
+					Key:      binary.BigEndian.Uint64(k),
+					Value:    cloneBytes(v),
+					priority: int(priority),
+				}
+				if keepGoing = fn(m); !keepGoing {
+					break
+				}
+			}
+			return nil
+		})
+	})
+}
+
+// Size returns the number of entries of a given priority from 1 to 5.
 func (b *PQueue) Size(topic string, priority int) (int, error) {
 	if priority < 0 || priority > 255 {
 		return 0, fmt.Errorf("Invalid priority %d for Size()", priority)
@@ -154,7 +213,7 @@ func (b *PQueue) Close() error {
 	return nil
 }
 
-// taken from boltDB. Avoids corruption when re-queueing
+// cloneBytes was taken from boltDB. Avoids corruption when re-queueing.
 func cloneBytes(v []byte) []byte {
 	var clone = make([]byte, len(v))
 	copy(clone, v)
