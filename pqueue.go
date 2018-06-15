@@ -12,9 +12,6 @@ import (
 
 var foundItem = errors.New("item found")
 
-// aKey singleton for assigning keys to messages
-var aKey = new(atomicKey)
-
 // PQueue is a priority queue backed by a Bolt database on disk
 type PQueue struct {
 	conn *bolt.DB
@@ -41,7 +38,8 @@ func NewPQueueFromFile(filename string) (*PQueue, error) {
 	return b, nil
 }
 
-func (b *PQueue) enqueueMessage(topic string, priority int, key []byte, message *Message) error {
+// Enqueue adds a message to the queue
+func (b *PQueue) Enqueue(topic string, priority int, messages ...*Message) error {
 	if priority < 0 || priority > 255 {
 		return fmt.Errorf("Invalid priority %d on Enqueue", priority)
 	}
@@ -52,30 +50,35 @@ func (b *PQueue) enqueueMessage(topic string, priority int, key []byte, message 
 		if err != nil {
 			return err
 		}
-		err = pb.Put(key, message.value)
-		if err != nil {
-			return err
+		for _, message := range messages {
+			if message.Key == 0 {
+				id, err := pb.NextSequence()
+				if err != nil {
+					return err
+				}
+				message.Key = id
+			}
+			key := make([]byte, binary.MaxVarintLen64)
+			binary.BigEndian.PutUint64(key, message.Key)
+			if err = pb.Put(key, message.Value); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
-}
-
-// Enqueue adds a message to the queue
-func (b *PQueue) Enqueue(topic string, priority int, message *Message) error {
-	k := make([]byte, 8)
-	binary.BigEndian.PutUint64(k, aKey.Get())
-	return b.enqueueMessage(topic, priority, k, message)
 }
 
 // Requeue adds a message back into the queue, keeping its precedence.
 // If added at the same priority, it should be among the first to dequeue.
 // If added at a different priority, it will dequeue before newer messages
 // of that priority.
-func (b *PQueue) Requeue(topic string, priority int, message *Message) error {
-	if message.key == nil {
-		return fmt.Errorf("Cannot requeue new message")
+func (b *PQueue) Requeue(topic string, priority int, messages ...*Message) error {
+	for _, message := range messages {
+		if message.Key == 0 {
+			return fmt.Errorf("Cannot requeue new message")
+		}
 	}
-	return b.enqueueMessage(topic, priority, message.key, message)
+	return b.Enqueue(topic, priority, messages...)
 }
 
 // Dequeue removes the oldest, highest priority message from the queue and
@@ -96,9 +99,15 @@ func (b *PQueue) Dequeue(topic string) (*Message, error) {
 			}
 
 			cur := bucket.Cursor()
-			k, v := cur.First() //Should not be empty by definition
+			kb, v := cur.First() // Should not be empty by definition since we just checked.
+
 			priority, _ := binary.Uvarint(bp)
-			m = &Message{priority: int(priority), key: cloneBytes(k), value: cloneBytes(v)}
+
+			m = &Message{
+				Key:      binary.BigEndian.Uint64(kb),
+				Value:    cloneBytes(v),
+				priority: int(priority),
+			}
 
 			// Remove message
 			if err := cur.Delete(); err != nil {
