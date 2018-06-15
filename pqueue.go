@@ -185,8 +185,8 @@ func (b *PQueue) ScanWithBreak(topic string, fn func(m *Message) bool) error {
 	})
 }
 
-// Size returns the number of entries of a given priority from 1 to 5.
-func (b *PQueue) Size(topic string, priority int) (int, error) {
+// Len returns the number of entries of a given priority from 1 to 5.
+func (b *PQueue) Len(topic string, priority int) (int, error) {
 	if priority < 0 || priority > 255 {
 		return 0, fmt.Errorf("Invalid priority %d for Size()", priority)
 	}
@@ -194,13 +194,13 @@ func (b *PQueue) Size(topic string, priority int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer tx.Rollback()
 	btopic := append([]byte(topic), byte(uint8(priority)))
 	bucket := tx.Bucket(btopic)
 	if bucket == nil {
 		return 0, nil
 	}
 	count := bucket.Stats().KeyN
-	tx.Rollback()
 	return count, nil
 }
 

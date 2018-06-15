@@ -31,7 +31,7 @@ func TestEnqueue(t *testing.T) {
 	}
 
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(topic, p)
+		s, err := testPQueue.Len(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -79,7 +79,7 @@ func TestDequeue(t *testing.T) {
 		}
 	}
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(topic, p)
+		s, err := testPQueue.Len(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -231,7 +231,7 @@ func TestGoroutines(t *testing.T) {
 	wg.Wait()
 
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(topic, p)
+		s, err := testPQueue.Len(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -257,7 +257,7 @@ func TestGoroutines(t *testing.T) {
 		}
 	}
 	for p := 1; p <= 5; p++ {
-		s, err := testPQueue.Size(topic, p)
+		s, err := testPQueue.Len(topic, p)
 		if err != nil {
 			t.Error(err)
 		}
