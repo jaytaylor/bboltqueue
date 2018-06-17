@@ -4,13 +4,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/coreos/bbolt"
 )
 
 // TODO: Interfacification of messages
 
-var foundItem = errors.New("item found")
+var (
+	foundItem = errors.New("item found")
+)
 
 // PQueue is a priority queue backed by a Bolt database on disk
 type PQueue struct {
@@ -118,6 +121,9 @@ func (b *PQueue) Dequeue(topic string) (*Message, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if m == nil {
+		return nil, io.EOF
 	}
 	return m, nil
 }
