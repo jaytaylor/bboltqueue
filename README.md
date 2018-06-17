@@ -21,6 +21,10 @@ into the queue at a numeric priority between 0(highest) and 255(lowest).
 Messages are dequeued following priority order, then time ordering, with the
 oldest messages of the highest priority emerging first.
 
+## Requirements
+
+* Go v1.7 or newer
+
 ## Usage
 
 #### type Message
